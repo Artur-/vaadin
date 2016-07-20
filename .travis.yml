@@ -1,0 +1,17 @@
+language: java
+jdk: oraclejdk8
+before_install: "./.travis.before_install.sh"
+script: "./.travis.script.sh"
+sudo: required
+dist: trusty
+branches:
+  only:
+  - master
+cache:
+  directories:
+  - "$HOME/.m2"
+before_cache:
+- rm -rf $HOME/.m2/repository/com/vaadin/
+env:
+  TESTBENCH_LICENSE:
+    secure: T4qSXsFZrgMtlGxfnvVPIYo9k10Z7CTb/uEP/aKd3/hB7EfSpYcqOleW1x/eKPc8qDM8Vg9RHNxKd8Fyu56xFiM8L/WDpNN1JkPgSOYT8TNsGRAJv2cSenFgdMLfM7DwDZwUZRGkS1J+NcdMjT7D+3pkTLyghogwjtlJChBVYGtUz5DAtw0RJMh2Oom8Z6GyY+ZDT2x4YA3OH80K0CYYDxSrewO6tHbFOJEPtvY3MmkQDR5R4u+MEPHfx4nUFeDBtf59cUA5+7u+9641rkwMgYQJs7FIE2pnXARdoTFJaRBGrAw4masz/uGyPjG/WdyuS82J1TSZw2XnXobXSnYNI6UO4la5V4yVgxa6OO5wKBkvpEp4ensVQEvKCiw8yknKcpAtls8bkySRjPyeA59auHXWY+uqesF9I4me9VWe5IeoAtiPkwJqhzc8dE3qptOggOGKKTLmjUTzpntfCM4+PezRH8+R5YY6Y639EBByvSzRA20xe5SfunzM0Nmhy31HXzSCefUJSV9Zjp0LXxLrA45vsU1eRJB/lTM4Beu5FxSZnxPaVIuvkFm51teByXQKycf7fzbu5nH8TerMTjmuI8lkxnvonZCnKTr2I3k+FUnWFKt+Fc5+6mtTE6oncyxC5OrLv9OaGiHP9S1Y7/nANYkzDhYhcTKgPwgxD9O+O6g=
