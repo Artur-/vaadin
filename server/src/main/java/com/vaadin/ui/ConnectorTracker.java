@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Set;
@@ -67,6 +68,7 @@ import elemental.json.JsonObject;
  */
 public class ConnectorTracker implements Serializable {
 
+    private static final int MAX_CONNECTORS_PER_SYNC_ID = 100;
     private final HashMap<String, ClientConnector> connectorIdToConnector = new HashMap<String, ClientConnector>();
     private Set<ClientConnector> dirtyConnectors = new HashSet<ClientConnector>();
     private Set<ClientConnector> uninitializedConnectors = new HashSet<ClientConnector>();
@@ -96,7 +98,7 @@ public class ConnectorTracker implements Serializable {
      * @see #getCurrentSyncId()
      * @see #cleanConcurrentlyRemovedConnectorIds(long)
      */
-    private TreeMap<Integer, Set<String>> syncIdToUnregisteredConnectorIds = new TreeMap<Integer, Set<String>>();
+    private TreeMap<Integer, List<String>> syncIdToUnregisteredConnectorIds = new TreeMap<Integer, List<String>>();
 
     /**
      * Gets a logger for this class
@@ -182,14 +184,21 @@ public class ConnectorTracker implements Serializable {
                     + " is not the one that was registered for that id");
         }
 
-        Set<String> unregisteredConnectorIds = syncIdToUnregisteredConnectorIds
+        List<String> unregisteredConnectorIds = syncIdToUnregisteredConnectorIds
                 .get(currentSyncId);
         if (unregisteredConnectorIds == null) {
-            unregisteredConnectorIds = new HashSet<String>();
+            unregisteredConnectorIds = new ArrayList<String>();
             syncIdToUnregisteredConnectorIds.put(currentSyncId,
                     unregisteredConnectorIds);
         }
         unregisteredConnectorIds.add(connectorId);
+        if (unregisteredConnectorIds.size() > MAX_CONNECTORS_PER_SYNC_ID) {
+            // By not tracking all unregistered connectors, we might do some
+            // extra resynchronization if an RPC to an unregistered connector is
+            // received but instead we do not use all server memory if there are
+            // no more messages from the client ever
+            unregisteredConnectorIds.remove(0);
+        }
 
         dirtyConnectors.remove(connector);
         if (unregisteredConnectors.add(connector)) {
@@ -875,9 +884,9 @@ public class ConnectorTracker implements Serializable {
          * Use non-inclusive tail map to find all connectors that were removed
          * after the reported sync id was sent to the client.
          */
-        NavigableMap<Integer, Set<String>> unregisteredAfter = syncIdToUnregisteredConnectorIds
+        NavigableMap<Integer, List<String>> unregisteredAfter = syncIdToUnregisteredConnectorIds
                 .tailMap(Integer.valueOf((int) lastSyncIdSeenByClient), false);
-        for (Set<String> unregisteredIds : unregisteredAfter.values()) {
+        for (List<String> unregisteredIds : unregisteredAfter.values()) {
             if (unregisteredIds.contains(connectorId)) {
                 // Removed with a higher sync id, so it was most likely present
                 // when this sync id was sent.
