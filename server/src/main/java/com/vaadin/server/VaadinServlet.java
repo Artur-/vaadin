@@ -1166,7 +1166,8 @@ public class VaadinServlet extends HttpServlet implements Constants {
             // try to normalize the path by collapsing ".." before the class
             // loader sees it.
 
-            if (!resourceUrl.getPath().contains("!/VAADIN/")) {
+            if (!resourceUrl.getPath().contains("!/VAADIN/") && !resourceUrl
+                    .getPath().contains("!/META-INF/resources/VAADIN/")) {
                 getLogger().log(Level.INFO,
                         "Blocked attempt to access a JAR entry not starting with /VAADIN/: {0}",
                         resourceUrl);
