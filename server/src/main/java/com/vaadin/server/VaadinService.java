@@ -1472,15 +1472,51 @@ public abstract class VaadinService implements Serializable {
 
         } catch (final SessionExpiredException e) {
             handleSessionExpired(request, response);
-        } catch (final Throwable e) {
+        } catch (final Exception e) {
             handleExceptionDuringRequest(request, response, vaadinSession, e);
         } finally {
             requestEnd(request, response, vaadinSession);
         }
     }
 
-    private void handleExceptionDuringRequest(VaadinRequest request,
-            VaadinResponse response, VaadinSession vaadinSession, Throwable t)
+    /**
+     * Checks whether a service exception should be thrown even when a Vaadin
+     * Session error handler has handled an exception thrown from a request
+     * handler.
+     * <p>
+     * Defaults to <code>true</code>.
+     *
+     * @return <code>true</code> to throw a service exception even for handled
+     *         errors, <code>false</code> to throw an exception only if an error
+     *         handler has not been set
+     */
+    protected boolean throwServiceExceptionForHandledErrors() {
+        return true;
+    }
+
+    /**
+     * Called whenever an exception was thrown from a request handler.
+     * <p>
+     * The default implementation calls the VaadinSession error handler with the
+     * exception and additionally sends back a "communication error" for UIDL
+     * requests or throws a ServiceException for other requests. If
+     * {@link #throwServiceExceptionForHandledErrors()} is overridden to return
+     * <code>false</code>, no ServiceException is thrown as long as there is an
+     * error handler set for the Vaadin Session.
+     *
+     * @param request
+     *            the request being handled
+     * @param response
+     *            the response
+     * @param vaadinSession
+     *            the related Vaadin session
+     * @param e
+     *            the exception thrown from a request handler
+     * @throws ServiceException
+     *             if
+     */
+    protected void handleExceptionDuringRequest(VaadinRequest request,
+            VaadinResponse response, VaadinSession vaadinSession, Exception e)
             throws ServiceException {
         if (vaadinSession != null) {
             vaadinSession.lock();
@@ -1490,7 +1526,7 @@ public abstract class VaadinService implements Serializable {
                     .findErrorHandler(vaadinSession);
 
             if (errorHandler != null) {
-                errorHandler.error(new ErrorEvent(t));
+                errorHandler.error(new ErrorEvent(e));
             }
 
             // if this was an UIDL request, send UIDL back to the client
@@ -1504,16 +1540,19 @@ public abstract class VaadinService implements Serializable {
                                     ci.getInternalErrorCaption(),
                                     ci.getInternalErrorMessage(), null,
                                     ci.getInternalErrorURL()));
-                } catch (IOException e) {
+                } catch (IOException ee) {
                     // An exception occured while writing the response. Log
                     // it and continue handling only the original error.
                     getLogger().log(Level.WARNING,
                             "Failed to write critical notification response to the client",
-                            e);
+                            ee);
                 }
             } else {
-                // Re-throw other exceptions
-                throw new ServiceException(t);
+                if (errorHandler == null
+                        || throwServiceExceptionForHandledErrors()) {
+                    // Re-throw other exceptions
+                    throw new ServiceException(e);
+                }
             }
         } finally {
             if (vaadinSession != null) {
