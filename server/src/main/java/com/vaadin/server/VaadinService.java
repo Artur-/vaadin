@@ -653,15 +653,19 @@ public abstract class VaadinService implements Serializable {
      *
      * @param wrappedSession
      *            The wrapped session
-     * @return A lock instance used for locking access to the wrapped session
+     * @return A reentrant lock instance either as a {@link ReentrantLock} or
+     *         {@link ReentrantLockWrapper}, used for locking access to the
+     *         VaadinSession for this service, inside the given wrapped session
      */
     protected Lock getSessionLock(WrappedSession wrappedSession) {
         Object lock = wrappedSession.getAttribute(getLockAttributeName());
 
         if (lock == null) {
             return null;
+        } else if (lock instanceof ReentrantLock) {
+            return (ReentrantLock) lock;
         } else if (lock instanceof Lock) {
-            return (Lock) lock;
+            return new ReentrantLockWrapper((Lock) lock);
         } else {
             throw new RuntimeException(
                     "Something else than a Lock was stored in the "
@@ -753,6 +757,8 @@ public abstract class VaadinService implements Serializable {
             throw new IllegalArgumentException("Lock must not be null");
         } else if (sessionLock instanceof ReentrantLock) {
             return ((ReentrantLock) sessionLock).isHeldByCurrentThread();
+        } else if (sessionLock instanceof ReentrantLockWrapper) {
+            return ((ReentrantLockWrapper) sessionLock).isHeldByCurrentThread();
         } else {
             throw new IllegalArgumentException(
                     "Unable to determine the hold count for a lock of type "
@@ -778,6 +784,8 @@ public abstract class VaadinService implements Serializable {
             throw new IllegalArgumentException("Lock must not be null");
         } else if (sessionLock instanceof ReentrantLock) {
             return ((ReentrantLock) sessionLock).getHoldCount();
+        } else if (sessionLock instanceof ReentrantLockWrapper) {
+            return ((ReentrantLockWrapper) sessionLock).getHoldCount();
         } else {
             throw new IllegalArgumentException(
                     "Unable to determine the hold count for a lock of type "
