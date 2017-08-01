@@ -38,7 +38,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -242,7 +241,7 @@ public class VaadinSession implements HttpSessionBindingListener, Serializable {
 
     private transient VaadinService service;
 
-    private transient Lock lock;
+    private transient Lock cachedLock;
 
     /*
      * Pending tasks can't be serialized and the queue should be empty when the
@@ -496,10 +495,11 @@ public class VaadinSession implements HttpSessionBindingListener, Serializable {
      * Updates the transient session lock from VaadinService.
      */
     private void refreshLock() {
-        assert lock == null || lock == service.getSessionLock(
+        assert cachedLock == null || cachedLock == service.getSessionLock(
                 session) : "Cannot change the lock from one instance to another";
         assert hasLock(service, session);
-        lock = service.getSessionLock(session);
+        assert service.isSessionLockedByCurrentThread(session);
+        cachedLock = service.getSessionLock(session);
     }
 
     public void setCommunicationManager(
@@ -799,21 +799,28 @@ public class VaadinSession implements HttpSessionBindingListener, Serializable {
      * @since 7.1
      */
     public boolean hasLock() {
-        ReentrantLock l = ((ReentrantLock) getLockInstance());
-        return l.isHeldByCurrentThread();
+        return service.isSessionLockedByCurrentThread(getLockInstance());
     }
 
     /**
      * Checks if the current thread has exclusive access to the given
      * WrappedSession.
      *
+     * @param service
+     *            the service the session belongs to
+     * @param session
+     *            the session to check
      * @return true if this thread has exclusive access, false otherwise
      * @since 7.6
+     * @deprecated use
+     *             {@link VaadinService#isSessionLockedByCurrentThread(Lock)} or
+     *             {@link VaadinService#isSessionLockedByCurrentThread(WrappedSession)}
+     *             instead
      */
+    @Deprecated
     protected static boolean hasLock(VaadinService service,
             WrappedSession session) {
-        ReentrantLock l = (ReentrantLock) service.getSessionLock(session);
-        return l.isHeldByCurrentThread();
+        return service.isSessionLockedByCurrentThread(session);
     }
 
     /**
@@ -948,7 +955,7 @@ public class VaadinSession implements HttpSessionBindingListener, Serializable {
      * @see Lock
      */
     public Lock getLockInstance() {
-        return lock;
+        return cachedLock;
     }
 
     /**
@@ -1011,10 +1018,10 @@ public class VaadinSession implements HttpSessionBindingListener, Serializable {
         boolean ultimateRelease = false;
         try {
             /*
-             * Run pending tasks and push if the reentrant lock will actually be
-             * released by this unlock() invocation.
+             * Run pending tasks and push if the lock will actually be released
+             * by this unlock() invocation.
              */
-            if (((ReentrantLock) getLockInstance()).getHoldCount() == 1) {
+            if (service.getSessionLockHoldCount(getLockInstance()) == 1) {
                 ultimateRelease = true;
                 getService().runPendingAccessTasks(this);
 
@@ -1481,7 +1488,7 @@ public class VaadinSession implements HttpSessionBindingListener, Serializable {
      * serialization is reading them.
      */
     private void writeObject(ObjectOutputStream out) throws IOException {
-        Lock lock = this.lock;
+        Lock lock = cachedLock;
 
         if (lock != null) {
             lock.lock();

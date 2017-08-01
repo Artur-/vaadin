@@ -658,17 +658,16 @@ public abstract class VaadinService implements Serializable {
     protected Lock getSessionLock(WrappedSession wrappedSession) {
         Object lock = wrappedSession.getAttribute(getLockAttributeName());
 
-        if (lock instanceof ReentrantLock) {
-            return (ReentrantLock) lock;
-        }
-
         if (lock == null) {
             return null;
+        } else if (lock instanceof Lock) {
+            return (Lock) lock;
+        } else {
+            throw new RuntimeException(
+                    "Something else than a Lock was stored in the "
+                            + getLockAttributeName()
+                            + " attribute in the session");
         }
-
-        throw new RuntimeException(
-                "Something else than a ReentrantLock was stored in the "
-                        + getLockAttributeName() + " in the session");
     }
 
     /**
@@ -722,10 +721,68 @@ public abstract class VaadinService implements Serializable {
      *            The session to unlock
      */
     protected void unlockSession(WrappedSession wrappedSession) {
-        assert getSessionLock(wrappedSession) != null;
-        assert ((ReentrantLock) getSessionLock(wrappedSession))
-                .isHeldByCurrentThread() : "Trying to unlock the session but it has not been locked by this thread";
+        assert isSessionLockedByCurrentThread(
+                wrappedSession) : "Trying to unlock the session but it has not been locked by this thread";
         getSessionLock(wrappedSession).unlock();
+    }
+
+    /**
+     * Check if the VaadinSession for this service has been locked.
+     *
+     * @param wrappedSession
+     *            the HTTP session
+     * @return <code>true</code> if the session is locked, <code>false</code>
+     *         otherwise
+     */
+    protected boolean isSessionLockedByCurrentThread(
+            WrappedSession wrappedSession) {
+        return isSessionLockedByCurrentThread(getSessionLock(wrappedSession));
+    }
+
+    /**
+     * Check if the VaadinSession for this service has been locked.
+     *
+     * @param sessionLock
+     *            the lock instance for the VaadinSession
+     * @return <code>true</code> if the session is locked, <code>false</code>
+     *         otherwise
+     */
+    protected boolean isSessionLockedByCurrentThread(Lock sessionLock) {
+        assert sessionLock != null;
+        if (sessionLock == null) {
+            throw new IllegalArgumentException("Lock must not be null");
+        } else if (sessionLock instanceof ReentrantLock) {
+            return ((ReentrantLock) sessionLock).isHeldByCurrentThread();
+        } else {
+            throw new IllegalArgumentException(
+                    "Unable to determine the hold count for a lock of type "
+                            + sessionLock.getClass().getName());
+        }
+    }
+
+    /**
+     * Gets the number of times the session has been locked by the current
+     * thread.
+     * <p>
+     * The caller should make sure that the session actually is locked by the
+     * current thread.
+     *
+     * @param sessionLock
+     *            the lock instance used
+     * @return the number of times the session has been locked by the current
+     *         thread
+     */
+    public int getSessionLockHoldCount(Lock sessionLock) {
+        assert isSessionLockedByCurrentThread(sessionLock);
+        if (sessionLock == null) {
+            throw new IllegalArgumentException("Lock must not be null");
+        } else if (sessionLock instanceof ReentrantLock) {
+            return ((ReentrantLock) sessionLock).getHoldCount();
+        } else {
+            throw new IllegalArgumentException(
+                    "Unable to determine the hold count for a lock of type "
+                            + sessionLock.getClass().getName());
+        }
     }
 
     private VaadinSession findOrCreateVaadinSession(VaadinRequest request)
@@ -763,8 +820,8 @@ public abstract class VaadinService implements Serializable {
     private VaadinSession doFindOrCreateVaadinSession(VaadinRequest request,
             boolean requestCanCreateSession)
             throws SessionExpiredException, ServiceException {
-        assert ((ReentrantLock) getSessionLock(request.getWrappedSession()))
-                .isHeldByCurrentThread() : "Session has not been locked by this thread";
+        assert isSessionLockedByCurrentThread(request
+                .getWrappedSession()) : "Session has not been locked by this thread";
 
         /* Find an existing session for this request. */
         VaadinSession session = getExistingSession(request,
@@ -829,8 +886,8 @@ public abstract class VaadinService implements Serializable {
      */
     private VaadinSession createAndRegisterSession(VaadinRequest request)
             throws ServiceException {
-        assert ((ReentrantLock) getSessionLock(request.getWrappedSession()))
-                .isHeldByCurrentThread() : "Session has not been locked by this thread";
+        assert isSessionLockedByCurrentThread(request
+                .getWrappedSession()) : "Session has not been locked by this thread";
 
         VaadinSession session = createVaadinSession(request);
 
@@ -2150,7 +2207,7 @@ public abstract class VaadinService implements Serializable {
      */
     protected void storeSession(VaadinSession session,
             WrappedSession wrappedSession) {
-        assert VaadinSession.hasLock(this, wrappedSession);
+        assert isSessionLockedByCurrentThread(wrappedSession);
         writeToHttpSession(wrappedSession, session);
         session.refreshTransients(wrappedSession, this);
     }
@@ -2182,7 +2239,7 @@ public abstract class VaadinService implements Serializable {
      * @return the VaadinSession in the HTTP session or null if not found
      */
     protected VaadinSession loadSession(WrappedSession wrappedSession) {
-        assert VaadinSession.hasLock(this, wrappedSession);
+        assert isSessionLockedByCurrentThread(wrappedSession);
 
         VaadinSession vaadinSession = readFromHttpSession(wrappedSession);
         if (vaadinSession == null) {
@@ -2217,7 +2274,7 @@ public abstract class VaadinService implements Serializable {
      *            the underlying HTTP session
      */
     public void removeSession(WrappedSession wrappedSession) {
-        assert VaadinSession.hasLock(this, wrappedSession);
+        assert isSessionLockedByCurrentThread(wrappedSession);
         removeFromHttpSession(wrappedSession);
     }
 
