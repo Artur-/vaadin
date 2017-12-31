@@ -130,6 +130,8 @@ public interface RowContainer {
          * @since 8.1
          */
         public void setNewRowCallback(Consumer<List<TableRowElement>> consumer);
+
+        void setEmptyText(String emptyText);
     }
 
     /**

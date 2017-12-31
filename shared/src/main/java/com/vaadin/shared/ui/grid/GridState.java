@@ -181,4 +181,11 @@ public class GridState extends AbstractSingleSelectState {
      * @since 8.2
      */
     public ContentMode rowDescriptionContentMode;
+
+    /**
+     * Message shown when grid contains no data.
+     *
+     * @since
+     */
+    public String emptyText;
 }

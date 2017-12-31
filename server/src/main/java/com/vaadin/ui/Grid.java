@@ -4700,4 +4700,22 @@ public class Grid<T> extends AbstractListing<T> implements HasComponents,
         }
     }
 
+    /**
+     * Sets a text which is shown if the grid contains no rows.
+     * <p>
+     * This is shown if the data provider returns no data, also if all rows have
+     * been filtered out.
+     *
+     * @param emptyText
+     *            the text to show, by default <code>null</code> which means no
+     *            text
+     * @since
+     */
+    public void setEmptyText(String emptyText) {
+        getState().emptyText = emptyText;
+    }
+
+    public String getEmptyText() {
+        return getState(false).emptyText;
+    }
 }

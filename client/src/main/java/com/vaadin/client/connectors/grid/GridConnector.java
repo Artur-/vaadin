@@ -482,6 +482,11 @@ public class GridConnector extends AbstractListingConnector
         getWidget().setSortOrder(sortOrder);
     }
 
+    @OnStateChange({ "emptyText" })
+    void updateEmptyText() {
+        getWidget().setEmptyText(getState().emptyText);
+    }
+
     @Override
     public void setDataSource(DataSource<JsonObject> dataSource) {
         super.setDataSource(dataSource);

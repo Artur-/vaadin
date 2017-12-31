@@ -2662,9 +2662,15 @@ public class Escalator extends Widget
         private DeferredDomSorter domSorter = new DeferredDomSorter();
 
         private final SpacerContainer spacerContainer = new SpacerContainer();
+        private TableRowElement emptyTextRow;
+        private TableCellElement emptyTextCell;
 
         public BodyRowContainerImpl(final TableSectionElement bodyElement) {
             super(bodyElement);
+
+            emptyTextRow = TableRowElement.as(DOM.createTR());
+            emptyTextCell = TableCellElement.as(DOM.createTD());
+            emptyTextRow.appendChild(emptyTextCell);
         }
 
         @Override
@@ -2672,6 +2678,8 @@ public class Escalator extends Widget
             super.setStylePrimaryName(primaryStyleName);
             UIObject.setStylePrimaryName(root, primaryStyleName + "-body");
             spacerContainer.setStylePrimaryName(primaryStyleName);
+            emptyTextRow.setClassName(primaryStyleName + "-body-row");
+            emptyTextCell.setClassName(primaryStyleName + "-cell");
         }
 
         public void updateEscalatorRowsOnScroll() {
@@ -2839,8 +2847,10 @@ public class Escalator extends Widget
 
         @Override
         public void insertRows(int index, int numberOfRows) {
+            if (numberOfRows > 0) {
+                setEmptyTextVisible(false);
+            }
             super.insertRows(index, numberOfRows);
-
             if (heightMode == HeightMode.UNDEFINED) {
                 setHeightByRows(getRowCount());
             }
@@ -2850,8 +2860,29 @@ public class Escalator extends Widget
         public void removeRows(int index, int numberOfRows) {
             super.removeRows(index, numberOfRows);
 
+            if (getRowCount() == 0) {
+                setEmptyTextVisible(true);
+            }
+
             if (heightMode == HeightMode.UNDEFINED) {
                 setHeightByRows(getRowCount());
+            }
+        }
+
+        @Override
+        public void setEmptyText(String emptyText) {
+            emptyTextCell.setInnerText(emptyText);
+        }
+
+        private void setEmptyTextVisible(boolean emptyTextVisible) {
+            if (emptyTextVisible) {
+                if (!emptyTextRow.hasParentElement()) {
+                    getElement().appendChild(emptyTextRow);
+                }
+                emptyTextRow.getStyle().setWidth(getScrollWidth(), Unit.PX);
+                emptyTextCell.getStyle().setWidth(getScrollWidth(), Unit.PX);
+            } else {
+                emptyTextRow.removeFromParent();
             }
         }
 
@@ -4149,8 +4180,10 @@ public class Escalator extends Widget
 
         @Override
         public int getDomRowCount() {
+            int emptyTextRowShown = (emptyTextRow.hasParentElement() ? 1 : 0);
             return root.getChildCount()
-                    - spacerContainer.getSpacersInDom().size();
+                    - spacerContainer.getSpacersInDom().size()
+                    - emptyTextRowShown;
         }
 
         @Override

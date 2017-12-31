@@ -7522,6 +7522,11 @@ public class Grid<T> extends ResizeComposite implements HasSelectionHandlers<T>,
 
         assert cell != null : "received " + eventType
                 + "-event with a null cell target";
+        if (cell.getRow() == -1) {
+            // Click on e.g. an empty text cell
+            return;
+        }
+
         eventCell.set(cell, getSectionFromContainer(container));
 
         GridEvent<T> gridEvent = new GridEvent<>(event, eventCell);
@@ -9331,5 +9336,9 @@ public class Grid<T> extends ResizeComposite implements HasSelectionHandlers<T>,
      */
     public Optional<SelectionColumn> getSelectionColumn() {
         return Optional.ofNullable(selectionColumn);
+    }
+
+    public void setEmptyText(String emptyText) {
+        escalator.getBody().setEmptyText(emptyText);
     }
 }
